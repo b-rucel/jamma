@@ -9,6 +9,8 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir lib --target browser && tsc --emitDeclarationOnly",
     "build:core": "bun scripts/build-core.ts",
+    "lookup": "bun scripts/lookup.ts",
+    "verify": "bun scripts/verify.ts",
     "dev": "bun example/serve.ts",
     "typecheck": "tsc --noEmit"
   },

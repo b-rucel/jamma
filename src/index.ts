@@ -7,11 +7,14 @@
 export type RomSource = string | ArrayBuffer | Uint8Array | Blob;
 
 export interface BootOptions {
-  /** URL of the compiled core, e.g. "/cores/sega16/mamesega16.js". The .wasm is expected beside it. */
+  /** URL of the compiled core, e.g. "/cores/sega16/sega16.js". The .wasm is expected beside it. */
   core: string;
   /** MAME driver (short name), e.g. "shinobi". */
   driver: string;
-  /** ROM zips keyed by file name, e.g. { "shinobi.zip": "/roms/shinobi.zip" }. Include parent sets for clones. */
+  /**
+   * ROM zips keyed by file name, e.g. { "shinobi.zip": "/roms/shinobi.zip" }. Include parent sets for clones.
+   * Names may contain a set folder ("goldnaxe/315-5298.b9") to add loose files MAME looks for beside the zip.
+   */
   roms: Record<string, RomSource>;
   /** Canvas to render into. Its id is forced to "canvas", which SDL3 targets by default. */
   canvas: HTMLCanvasElement;
@@ -32,6 +35,8 @@ export interface Machine {
   loadState(slot: string): void;
   setMuted(muted: boolean): void;
   setShowFps(show: boolean): void;
+  /** Enter or leave browser fullscreen on the canvas, keeping the game's aspect ratio. Call from a user gesture. */
+  toggleFullscreen(): Promise<void>;
   exit(): void;
 }
 
@@ -48,7 +53,7 @@ interface JsMame {
 }
 
 interface EmscriptenFS {
-  mkdir(path: string): void;
+  mkdirTree(path: string): void;
   writeFile(path: string, data: Uint8Array): void;
 }
 
@@ -56,7 +61,6 @@ declare global {
   interface Window {
     Module?: Record<string, unknown>;
     FS?: EmscriptenFS;
-    JSMAME?: JsMame;
   }
 }
 
@@ -101,6 +105,8 @@ export async function boot(opts: BootOptions): Promise<Machine> {
         "-rompath", ROM_DIR,
         "-window",
         "-resolution", `${width}x${height}`,
+        // The default "opengl" renderer calls desktop GL functions WebGL lacks (glShadeModel).
+        "-video", "bgfx",
         ...(opts.args ?? []),
       ],
       locateFile: (path: string) => new URL(path, coreBase).href,
@@ -109,8 +115,12 @@ export async function boot(opts: BootOptions): Promise<Machine> {
       preRun: [
         () => {
           const fs = window.FS!;
-          fs.mkdir(ROM_DIR);
-          for (const [name, bytes] of roms) fs.writeFile(`${ROM_DIR}/${name}`, bytes);
+          fs.mkdirTree(ROM_DIR);
+          for (const [name, bytes] of roms) {
+            const path = `${ROM_DIR}/${name}`;
+            fs.mkdirTree(path.slice(0, path.lastIndexOf("/")));
+            fs.writeFile(path, bytes);
+          }
         },
       ],
       onRuntimeInitialized: () => resolve(),
@@ -123,10 +133,27 @@ export async function boot(opts: BootOptions): Promise<Machine> {
     document.body.appendChild(script);
   });
 
-  const js = () => {
-    if (!window.JSMAME) throw new Error("jamma: JSMAME bindings missing from core");
-    return window.JSMAME;
+  // SDL grows the canvas to the screen in fullscreen but doesn't shrink it back on exit.
+  // A resize event makes SDL re-read the canvas's CSS size, so give the canvas a CSS size.
+  document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement) window.dispatchEvent(new Event("resize"));
+  });
+
+  // MAME's own JSMAME object is built by its post-js before the wasm loads, so its
+  // number-only cwraps come out undefined. Bind the same exports now that they exist.
+  const cwrap = window.Module!.cwrap as (name: string, ret: string | null, args?: string[]) => any;
+  const bindings: JsMame = {
+    get_ui: cwrap("_ZN15running_machine17emscripten_get_uiEv", "number"),
+    get_sound: cwrap("_ZN15running_machine20emscripten_get_soundEv", "number"),
+    ui_set_show_fps: cwrap("_ZN15mame_ui_manager12set_show_fpsEb", null, ["number", "number"]),
+    sound_manager_mute: cwrap("_ZN13sound_manager4muteEbh", null, ["number", "number", "number"]),
+    soft_reset: cwrap("_ZN15running_machine21emscripten_soft_resetEv", null),
+    hard_reset: cwrap("_ZN15running_machine21emscripten_hard_resetEv", null),
+    save: cwrap("_ZN15running_machine15emscripten_saveEPKc", null, ["string"]),
+    load: cwrap("_ZN15running_machine15emscripten_loadEPKc", null, ["string"]),
+    exit: cwrap("_ZN15running_machine15emscripten_exitEv", null, []),
   };
+  const js = () => bindings;
 
   return {
     driver: opts.driver,
@@ -136,6 +163,12 @@ export async function boot(opts: BootOptions): Promise<Machine> {
     loadState: (slot) => js().load(slot),
     setMuted: (muted) => js().sound_manager_mute(js().get_sound(), muted ? 1 : 0, MUTE_REASON_UI),
     setShowFps: (show) => js().ui_set_show_fps(js().get_ui(), show ? 1 : 0),
+    toggleFullscreen: async () => {
+      if (document.fullscreenElement) return document.exitFullscreen();
+      // Fullscreen stretches the canvas to the screen; letterbox instead.
+      opts.canvas.style.objectFit = "contain";
+      await opts.canvas.requestFullscreen();
+    },
     exit: () => js().exit(),
   };
 }

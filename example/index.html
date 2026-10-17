@@ -7,7 +7,7 @@
   <style>
     body { margin: 0; background: #111; color: #ddd; font: 14px system-ui, sans-serif; }
     main { max-width: 680px; margin: 24px auto; padding: 0 16px; }
-    canvas { display: block; width: 100%; background: #000; image-rendering: pixelated; }
+    canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: #000; image-rendering: pixelated; }
     form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     input { background: #222; color: #ddd; border: 1px solid #444; padding: 6px; }
     button { padding: 6px 12px; }
@@ -17,11 +17,13 @@
 <body>
 <main>
   <form id="f">
-    <input name="core" value="/cores/sega16/mamesega16.js" size="32" title="core URL">
+    <input name="core" value="/cores/sega16/sega16.js" size="32" title="core URL">
     <input name="driver" value="goldnaxe" size="10" title="driver">
-    <input name="roms" value="goldnaxe.zip" size="24" title="ROM zips in roms/, comma separated">
+    <input name="roms" value="goldnaxe.zip,goldnaxe/315-5298.b9" size="32" title="ROM zips in roms/, comma separated">
     <button>Boot</button>
+    <button type="button" id="fs" disabled title="Fullscreen (or double-click the game)">Fullscreen</button>
   </form>
+  <p id="pad">Controller: none. Press a button on your controller before Boot.</p>
   <canvas width="640" height="480"></canvas>
   <div id="log"></div>
 </main>
@@ -30,7 +32,24 @@
 
   const form = document.getElementById("f");
   const log = document.getElementById("log");
+  const fs = document.getElementById("fs");
   const print = (s) => { log.textContent += s + "\n"; log.scrollTop = log.scrollHeight; };
+
+  fs.addEventListener("click", () => window.machine?.toggleFullscreen());
+
+  // MAME only registers controllers present at boot, and Chrome only exposes a
+  // controller after one of its buttons is pressed on this page.
+  const pad = document.getElementById("pad");
+  const showPads = () => {
+    const pads = [...navigator.getGamepads()].filter(Boolean).map((p) => p.id.replace(/\s*\(.*\)$/, ""));
+    pad.textContent = pads.length
+      ? `Controller: ${pads.join(", ")}${window.machine ? "" : ". Ready to Boot."}`
+      : "Controller: none. Press a button on your controller before Boot.";
+  };
+  window.addEventListener("gamepadconnected", showPads);
+  window.addEventListener("gamepaddisconnected", showPads);
+  // No keyboard shortcut: MAME's default keymap uses most keys (F is player 2 down).
+  document.querySelector("canvas").addEventListener("dblclick", () => window.machine?.toggleFullscreen());
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -49,6 +68,8 @@
         onStderr: print,
       });
       print(`booted ${window.machine.driver}`);
+      fs.disabled = false;
+      showPads();
     } catch (err) {
       print(String(err));
     }

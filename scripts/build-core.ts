@@ -36,8 +36,8 @@ const make = [
   `SOURCES=${cores[name].sources.join(",")}`,
   "REGENIE=1",
   `-j${jobs}`,
-  `&& cp mame${name}.js mame${name}.wasm /out/`,
+  `&& cp ${name}.js ${name}.wasm /out/`,
 ].join(" ");
 
 await $`docker run --rm -v ${out}:/out -v jamma-build-${name}:/mame/build ${image} bash -c ${make}`;
-console.log(`built ${out}/mame${name}.{js,wasm}`);
+console.log(`built ${out}/${name}.{js,wasm}`);
