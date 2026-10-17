@@ -1,0 +1,20 @@
+{
+  "name": "jamma",
+  "version": "0.1.0",
+  "description": "Reproducible MAME WebAssembly cores and a small TypeScript loader for running arcade games in the browser",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": ["lib", "src"],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir lib --target browser && tsc --emitDeclarationOnly",
+    "build:core": "bun scripts/build-core.ts",
+    "dev": "bun example/serve.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,6 @@
+node_modules/
+lib/
+cores/
+roms/
+*.zip
+.DS_Store

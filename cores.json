@@ -1,0 +1,21 @@
+{
+  "mame": "mame0289",
+  "emsdk": "6.0.12",
+  "cores": {
+    "sega16": {
+      "description": "Sega System 16A/16B",
+      "sources": ["src/mame/sega/segas16a.cpp", "src/mame/sega/segas16b.cpp"],
+      "games": ["shinobi", "goldnaxe"]
+    },
+    "capcom194x": {
+      "description": "Capcom 1942 / 1943",
+      "sources": ["src/mame/capcom/1942.cpp", "src/mame/capcom/1943.cpp"],
+      "games": ["1942", "1942b", "1943", "1943ua"]
+    },
+    "williams": {
+      "description": "Williams 6809 hardware (Defender family)",
+      "sources": ["src/mame/williams/williams.cpp"],
+      "games": ["alienar"]
+    }
+  }
+}

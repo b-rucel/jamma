@@ -1,0 +1,43 @@
+#!/usr/bin/env bun
+// Build one MAME core to cores/<name>/ inside the pinned Docker image.
+// Usage: bun scripts/build-core.ts <core> [--jobs N] [--rebuild-image]
+
+import { $ } from "bun";
+import { mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import config from "../cores.json";
+
+const root = resolve(import.meta.dir, "..");
+const args = process.argv.slice(2);
+const name = args.find((a) => !a.startsWith("--"));
+const flag = (f: string) => args.includes(f);
+const jobsIdx = args.indexOf("--jobs");
+const jobs = jobsIdx >= 0 ? Number(args[jobsIdx + 1]) : navigator.hardwareConcurrency;
+
+const cores = config.cores as Record<string, { sources: string[] }>;
+if (!name || !cores[name]) {
+  console.error(`usage: bun scripts/build-core.ts <core>\ncores: ${Object.keys(cores).join(", ")}`);
+  process.exit(1);
+}
+
+const image = `jamma-builder:${config.mame}-emsdk${config.emsdk}`;
+const exists = (await $`docker image inspect ${image}`.quiet().nothrow()).exitCode === 0;
+if (!exists || flag("--rebuild-image")) {
+  await $`docker build -t ${image} --build-arg EMSDK_VERSION=${config.emsdk} --build-arg MAME_TAG=${config.mame} ${join(root, "docker")}`;
+}
+
+const out = join(root, "cores", name);
+mkdirSync(out, { recursive: true });
+
+// Object files live in a named volume per core so rebuilds are incremental.
+const make = [
+  "emmake make",
+  `SUBTARGET=${name}`,
+  `SOURCES=${cores[name].sources.join(",")}`,
+  "REGENIE=1",
+  `-j${jobs}`,
+  `&& cp mame${name}.js mame${name}.wasm /out/`,
+].join(" ");
+
+await $`docker run --rm -v ${out}:/out -v jamma-build-${name}:/mame/build ${image} bash -c ${make}`;
+console.log(`built ${out}/mame${name}.{js,wasm}`);

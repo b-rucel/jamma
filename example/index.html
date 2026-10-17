@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>jamma example</title>
+  <style>
+    body { margin: 0; background: #111; color: #ddd; font: 14px system-ui, sans-serif; }
+    main { max-width: 680px; margin: 24px auto; padding: 0 16px; }
+    canvas { display: block; width: 100%; background: #000; image-rendering: pixelated; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    input { background: #222; color: #ddd; border: 1px solid #444; padding: 6px; }
+    button { padding: 6px 12px; }
+    #log { white-space: pre-wrap; font: 12px ui-monospace, monospace; color: #888; max-height: 200px; overflow: auto; }
+  </style>
+</head>
+<body>
+<main>
+  <form id="f">
+    <input name="core" value="/cores/sega16/mamesega16.js" size="32" title="core URL">
+    <input name="driver" value="goldnaxe" size="10" title="driver">
+    <input name="roms" value="goldnaxe.zip" size="24" title="ROM zips in roms/, comma separated">
+    <button>Boot</button>
+  </form>
+  <canvas width="640" height="480"></canvas>
+  <div id="log"></div>
+</main>
+<script type="module">
+  import { boot } from "/jamma.js";
+
+  const form = document.getElementById("f");
+  const log = document.getElementById("log");
+  const print = (s) => { log.textContent += s + "\n"; log.scrollTop = log.scrollHeight; };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d = new FormData(form);
+    const roms = Object.fromEntries(
+      String(d.get("roms")).split(",").map((s) => s.trim()).filter(Boolean).map((n) => [n, `/roms/${n}`]),
+    );
+    form.querySelector("button").disabled = true;
+    try {
+      window.machine = await boot({
+        core: String(d.get("core")),
+        driver: String(d.get("driver")),
+        roms,
+        canvas: document.querySelector("canvas"),
+        onStdout: print,
+        onStderr: print,
+      });
+      print(`booted ${window.machine.driver}`);
+    } catch (err) {
+      print(String(err));
+    }
+  });
+</script>
+</body>
+</html>
