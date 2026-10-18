@@ -6,6 +6,7 @@ import { $ } from "bun";
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import config from "../cores.json";
+import { compressCore } from "./compress-core";
 
 const root = resolve(import.meta.dir, "..");
 const args = process.argv.slice(2);
@@ -48,4 +49,5 @@ const make = [
 ].join(" ");
 
 await $`docker run --rm -v ${out}:/out -v jamma-build-${name}:/mame/build ${image} bash -c ${make}`;
-console.log(`built ${out}/${name}.{js,wasm}`);
+await compressCore(out, name);
+console.log(`built ${out}/${name}.{js,wasm} (+ .br/.gz)`);

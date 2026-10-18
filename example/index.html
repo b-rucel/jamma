@@ -9,7 +9,8 @@
     main { max-width: 680px; margin: 24px auto; padding: 0 16px; }
     canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: #000; image-rendering: pixelated; }
     form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    input { background: #222; color: #ddd; border: 1px solid #444; padding: 6px; }
+    input, select { background: #222; color: #ddd; border: 1px solid #444; padding: 6px; }
+    select { flex: 1 1 100%; }
     button { padding: 6px 12px; }
     #log { white-space: pre-wrap; font: 12px ui-monospace, monospace; color: #888; max-height: 200px; overflow: auto; }
   </style>
@@ -17,10 +18,14 @@
 <body>
 <main>
   <form id="f">
+    <select id="game" title="games in your built cores (cores/*/games.json)">
+      <option value="">Pick a game, or fill in the fields below</option>
+    </select>
     <input name="core" value="/cores/sega16/sega16.js" size="32" title="core URL">
     <input name="driver" value="goldnaxe" size="10" title="driver">
     <input name="roms" value="goldnaxe.zip,goldnaxe/315-5298.b9" size="32" title="ROM zips in roms/, comma separated">
     <button>Boot</button>
+    <button type="button" id="stop" disabled title="Stop the game (reloads the page)">Stop</button>
     <button type="button" id="fs" disabled title="Fullscreen (or double-click the game)">Fullscreen</button>
   </form>
   <p id="pad">Controller: none. Press a button on your controller before Boot.</p>
@@ -37,6 +42,36 @@
 
   fs.addEventListener("click", () => window.machine?.toggleFullscreen());
 
+  // Dropdown of every game in the built cores; picking one fills the three fields.
+  const select = document.getElementById("game");
+  const games = await fetch("/games.json").then((r) => r.json()).catch(() => []);
+  for (const core of [...new Set(games.map((g) => g.core))]) {
+    const group = document.createElement("optgroup");
+    group.label = core;
+    games.forEach((g, i) => {
+      if (g.core !== core) return;
+      const flag = g.verify === "WARN" ? " ⚠" : "";
+      group.append(new Option(`${g.title} (${g.manufacturer}, ${g.year})${flag}`, String(i)));
+    });
+    select.append(group);
+  }
+  select.addEventListener("change", () => {
+    const g = games[Number(select.value)];
+    if (!g) return;
+    form.core.value = g.coreUrl;
+    form.driver.value = g.name;
+    form.roms.value = g.roms.join(",");
+    try { localStorage.setItem("jamma-example-game", `${g.core}/${g.name}`); } catch {}
+  });
+  // Restore the last pick.
+  let last = null;
+  try { last = localStorage.getItem("jamma-example-game"); } catch {}
+  const lastIdx = games.findIndex((g) => `${g.core}/${g.name}` === last);
+  if (lastIdx >= 0) {
+    select.value = String(lastIdx);
+    select.dispatchEvent(new Event("change"));
+  }
+
   // MAME only registers controllers present at boot, and Chrome only exposes a
   // controller after one of its buttons is pressed on this page.
   const pad = document.getElementById("pad");
@@ -51,13 +86,28 @@
   // No keyboard shortcut: MAME's default keymap uses most keys (F is player 2 down).
   document.querySelector("canvas").addEventListener("dblclick", () => window.machine?.toggleFullscreen());
 
+  // MAME's core lives in page globals and can't be unloaded, so a page runs one game.
+  // Switching or stopping reloads the page; the core comes back from cache (ETag 304).
+  const BOOT_KEY = "jamma-example-boot";
+  const stop = document.getElementById("stop");
+  stop.addEventListener("click", () => location.reload());
+  let started = false;
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const d = new FormData(form);
+    if (started) {
+      try {
+        sessionStorage.setItem(BOOT_KEY, JSON.stringify({ core: d.get("core"), driver: d.get("driver"), roms: d.get("roms") }));
+      } catch {}
+      location.reload();
+      return;
+    }
+    started = true;
     const roms = Object.fromEntries(
       String(d.get("roms")).split(",").map((s) => s.trim()).filter(Boolean).map((n) => [n, `/roms/${n}`]),
     );
-    form.querySelector("button").disabled = true;
+    stop.disabled = false;
     try {
       window.machine = await boot({
         core: String(d.get("core")),
@@ -74,6 +124,20 @@
       print(String(err));
     }
   });
+
+  // Boot the game picked before a switch-reload. There was no click on this page yet,
+  // so audio starts on the first key or click (the loader resumes it then).
+  let pending = null;
+  try {
+    pending = JSON.parse(sessionStorage.getItem(BOOT_KEY) ?? "null");
+    sessionStorage.removeItem(BOOT_KEY);
+  } catch {}
+  if (pending) {
+    form.core.value = pending.core;
+    form.driver.value = pending.driver;
+    form.roms.value = pending.roms;
+    form.requestSubmit();
+  }
 </script>
 </body>
 </html>

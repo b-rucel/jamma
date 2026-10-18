@@ -24,6 +24,8 @@ bun scripts/build-core.ts sega16 --jobs 8
 
 The first run builds the `jamma-builder:mame0289-emsdk6.0.12` image, which clones MAME and pre-builds the SDL3 ports. Each core then compiles only its listed drivers and writes `cores/<name>/<name>.js` and `<name>.wasm`. Object files are kept in the Docker volume `jamma-build-<name>`, so rebuilds are incremental.
 
+After the build, `scripts/compress-core.ts` writes `.br` and `.gz` copies of the `.js` and `.wasm` (the arcade core: 44 MB → 6.2 MB brotli, 8.3 MB gzip). Serve them with `Content-Encoding` matching the browser's `Accept-Encoding`. Browsers only offer brotli over HTTPS or localhost, so plain-HTTP LAN visits need the gzip copy. `example/serve.ts` does this and adds an ETag, so repeat visits get a 304 instead of re-downloading the core. To compress an existing core without rebuilding, run `bun scripts/compress-core.ts <core>`.
+
 The flags:
 
 - `--jobs N` sets the number of parallel compile jobs. Docker Desktop's default 8 GB VM handles about 8; more can run out of memory.
