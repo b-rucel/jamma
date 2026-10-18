@@ -4,6 +4,16 @@ Reproducible MAME WebAssembly builds plus a small TypeScript loader for running 
 
 The name comes from the JAMMA connector: the standard harness that lets any arcade board plug into any cabinet. jamma is that interface. It turns MAME into a core your app can load. It has no UI; apps such as `insert-coin` build on it.
 
+## Before you start
+
+jamma ships no built cores and no ROMs. You build the cores yourself and bring your own ROM sets.
+
+- **Docker**, with at least 8 GB of memory for its VM (Docker Desktop's default). The builder image is about 5.5 GB, and each core keeps its compiled objects in a Docker volume of 300–450 MB so rebuilds are incremental.
+- **Bun** 1.2 or newer, for the build, ROM and test-server scripts.
+- **Time.** The first build of a core takes 25–30 minutes at 8 parallel jobs. That figure is from a 16-core Intel Mac; the `arcade` core (47 drivers) took about 27 minutes. Every core compiles MAME's shared emulation code once, whether it has 2 drivers or 50. Building the builder image the first time adds a few minutes.
+- **Your own ROM sets**, matching MAME 0.289. Sets made for older MAME versions may be missing files that 0.289 requires; `bun scripts/verify.ts` tells you which sets are usable before you build. ROMs are copyrighted, and jamma doesn't provide or link to any. For legal test games, [mamedev.org/roms](https://www.mamedev.org/roms/) lists ones whose rights holders allow free distribution.
+- **A browser with WebGL 2**, loading pages over HTTP. Opening a page as `file://` doesn't work.
+
 ## What's pinned
 
 | | Version | Where |
@@ -15,7 +25,7 @@ MAME 0.289 targets SDL3 under Emscripten, so it needs a recent emsdk. Bump both 
 
 ## Building a core
 
-Requirements: Docker and Bun.
+See [Before you start](#before-you-start) for requirements.
 
 ```sh
 bun install
