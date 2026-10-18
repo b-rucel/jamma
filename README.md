@@ -29,6 +29,10 @@ The flags:
 - `--jobs N` sets the number of parallel compile jobs. Docker Desktop's default 8 GB VM handles about 8; more can run out of memory.
 - `--rebuild-image` rebuilds the builder image after you change a pinned version.
 
+A core is built from its `sources` plus any optional `extraSources` listed on its entry. `extraSources` is for driver files the linker turns out to need after the fact, when a boot fails with a missing-driver `ReferenceError`; listing them there keeps them out of `core-from-roms`' generated `sources` so a re-run of that script can't remove the fix. `makeArgs` on a core appends variables to the build's `emmake make` (e.g. `"ARCHOPTS=-msimd128"` to let clang autovectorize for WASM SIMD).
+
+Tested and not adopted (2026-10-17, 5 games): WASM SIMD (`-msimd128`) and a link-time `-O3` (MAME caps the emcc link at `-O2`) each sped up some drivers and slowed others (e.g. Gyruss −11% / −21%, Golden Axe +18% / +10% per frame), with no net gain over the default build.
+
 Cores are defined in `cores.json`:
 
 | Core | Driver sources | Example games |
@@ -37,7 +41,13 @@ Cores are defined in `cores.json`:
 | `capcom194x` | `capcom/1942.cpp`, `capcom/1943.cpp` | 1942, 1943 |
 | `williams` | `williams/williams.cpp` | alienar |
 
-To add a core, add an entry to `cores.json` with the driver `.cpp` paths from `src/mame/` at the pinned tag. If the browser console shows a `ReferenceError` or a missing device, add the missing source file to `sources`.
+To add a core, add an entry to `cores.json` with the driver `.cpp` paths from `src/mame/` at the pinned tag. If the browser console shows a `ReferenceError` or a missing device, add the missing source file to `sources`. Or derive one from a ROM folder:
+
+```sh
+bun scripts/core-from-roms.ts arcade --description "Collection from roms/"
+```
+
+It verifies every set in the ROM folder, writes the `cores.json` entry (driver `sources` plus the `games` list) and `cores/<core>/games.json`, the manifest the loader can boot every usable set from. Only usable sets make it in: `OK` or `WARN` from `verify`, no CHDs needed. Sets that already have an `extraSources` array on their entry keep it when re-run, so linker fixes survive regeneration.
 
 ## Looking up and verifying ROM sets
 
@@ -55,8 +65,8 @@ bun scripts/verify.ts goldnaxe 1942b --rompath roms
 `verify` checks sets the way MAME loads them: by CRC anywhere in a zip, and by file name in a folder. It also searches the parent, BIOS and device sets in the same folder. Each set is reported as:
 
 - `OK`: everything is present.
-- `WARN`: only optional files are missing, or the set needs a CHD (CHDs aren't checked).
-- `BAD`: files are missing or have the wrong checksum.
+- `WARN`: wrong checksums, optional files missing, or the set needs a CHD (CHDs aren't checked). A wrong checksum only warns — MAME starts anyway, which is how the placeholder PLDs in the ROM section work.
+- `BAD`: required files are missing — MAME won't start.
 - `UNKNOWN`: the name isn't a set in this version. It suggests the set whose ROMs match the contents, e.g. `blacktiger` → `blktiger (20/20)`.
 
 It exits with status 1 if any set is `BAD` or `UNKNOWN`.
@@ -77,7 +87,12 @@ button.onclick = async () => {
 };
 ```
 
-`boot()` fetches the ROMs, writes them to `/roms` in MAME's in-memory filesystem, loads the core and starts the driver. The returned machine supports:
+`boot()` fetches the ROMs, writes them to `/roms` in MAME's in-memory filesystem, loads the core and starts the driver. Boot defaults, each overridable via `args`:
+
+- **`-nothrottle`, paced by jamma.** In the browser, each MAME main-loop iteration emulates exactly 1/60 s, on `requestAnimationFrame`. MAME's own throttle then busy-waits on the main thread (`sleep_for` without threads), which took about a third of every frame. jamma turns the throttle off and paces iterations to 60 per second itself (`pace60()`), so 120/144 Hz displays don't run games 2× fast. Measured on an Intel Mac: Golden Axe went from 15.8 to 10.9 ms per frame, and Gyruss from 49.7 fps (19.4 ms per frame) to a steady 60 fps (9.2 ms). Passing `-throttle` in `args` brings MAME's throttle back. `-autoframeskip` only works with the throttle on.
+- **Audio resume:** browsers keep MAME's `AudioContext` suspended when it starts without a gesture (it is created seconds after Boot, outside the click that booted the game). jamma listens for `pointerdown`, `keydown` and `touchstart` on the page and resumes the context, so sound starts on the first input after boot.
+
+The returned machine supports:
 
 - `softReset()` and `hardReset()`
 - `saveState(slot)` and `loadState(slot)`

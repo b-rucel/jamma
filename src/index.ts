@@ -57,11 +57,39 @@ interface EmscriptenFS {
   writeFile(path: string, data: Uint8Array): void;
 }
 
+/** MAME's audio backend global (src/osd/modules/sound/js_sound.js). */
+interface JsWebAudio {
+  get_context(): AudioContext | null;
+}
+
+/** Emscripten's main loop global; a preMainLoop hook returning false skips that iteration. */
+interface EmscriptenMainLoop {
+  preMainLoop: (() => boolean | void)[];
+}
+
 declare global {
   interface Window {
     Module?: Record<string, unknown>;
     FS?: EmscriptenFS;
+    jsmame_web_audio?: JsWebAudio;
+    MainLoop?: EmscriptenMainLoop;
   }
+}
+
+const FRAME_MS = 1000 / 60;
+
+/**
+ * Let main-loop iterations through at 60 per second whatever the display's refresh rate.
+ * Allows 2 ms of early rAF jitter; after a stall it resyncs instead of bursting to catch up.
+ */
+export function pace60(now: () => number = () => performance.now()) {
+  let due = 0;
+  return () => {
+    const t = now();
+    if (t < due - 2) return false;
+    due = due && t - due < FRAME_MS ? due + FRAME_MS : t + FRAME_MS;
+    return true;
+  };
 }
 
 const ROM_DIR = "/roms";
@@ -107,6 +135,9 @@ export async function boot(opts: BootOptions): Promise<Machine> {
         "-resolution", `${width}x${height}`,
         // The default "opengl" renderer calls desktop GL functions WebGL lacks (glShadeModel).
         "-video", "bgfx",
+        // MAME's throttle busy-waits on the main thread (sleep_for without threads), about a
+        // third of each frame. Pacing comes from requestAnimationFrame plus pace60() instead.
+        "-nothrottle",
         ...(opts.args ?? []),
       ],
       locateFile: (path: string) => new URL(path, coreBase).href,
@@ -133,11 +164,25 @@ export async function boot(opts: BootOptions): Promise<Machine> {
     document.body.appendChild(script);
   });
 
+  // Each main-loop iteration emulates exactly 1/60 s (running_machine::emscripten_main_loop),
+  // so on a 120/144 Hz display the game would run 2-2.4x fast. Skip iterations to hold 60/s.
+  window.MainLoop!.preMainLoop.push(pace60());
+
   // SDL grows the canvas to the screen in fullscreen but doesn't shrink it back on exit.
   // A resize event makes SDL re-read the canvas's CSS size, so give the canvas a CSS size.
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) window.dispatchEvent(new Event("resize"));
   });
+
+  // MAME creates its AudioContext seconds after boot, and browsers keep one
+  // suspended unless a user gesture resumes it, so hook every gesture from here on.
+  const resumeAudio = () => {
+    const ctx = window.jsmame_web_audio?.get_context();
+    if (ctx && ctx.state !== "running") ctx.resume();
+  };
+  for (const type of ["pointerdown", "keydown", "touchstart"] as const) {
+    window.addEventListener(type, resumeAudio, true);
+  }
 
   // MAME's own JSMAME object is built by its post-js before the wasm loads, so its
   // number-only cwraps come out undefined. Bind the same exports now that they exist.

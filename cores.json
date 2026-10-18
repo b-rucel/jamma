@@ -4,18 +4,151 @@
   "cores": {
     "sega16": {
       "description": "Sega System 16A/16B",
-      "sources": ["src/mame/sega/segas16a.cpp", "src/mame/sega/segas16b.cpp"],
-      "games": ["shinobi", "goldnaxe"]
+      "sources": [
+        "src/mame/sega/segas16a.cpp",
+        "src/mame/sega/segas16b.cpp"
+      ],
+      "games": [
+        "shinobi",
+        "goldnaxe"
+      ]
     },
     "capcom194x": {
       "description": "Capcom 1942 / 1943",
-      "sources": ["src/mame/capcom/1942.cpp", "src/mame/capcom/1943.cpp"],
-      "games": ["1942", "1942b", "1943", "1943ua"]
+      "sources": [
+        "src/mame/capcom/1942.cpp",
+        "src/mame/capcom/1943.cpp"
+      ],
+      "games": [
+        "1942",
+        "1942b",
+        "1943",
+        "1943ua"
+      ]
     },
     "williams": {
       "description": "Williams 6809 hardware (Defender family)",
-      "sources": ["src/mame/williams/williams.cpp"],
-      "games": ["alienar"]
+      "sources": [
+        "src/mame/williams/williams.cpp"
+      ],
+      "games": [
+        "alienar"
+      ]
+    },
+    "arcade": {
+      "description": "Collection from roms/",
+      "sources": [
+        "src/mame/alpha/champbas.cpp",
+        "src/mame/capcom/1942.cpp",
+        "src/mame/capcom/1943.cpp",
+        "src/mame/capcom/blktiger.cpp",
+        "src/mame/capcom/cps1.cpp",
+        "src/mame/capcom/sidearms.cpp",
+        "src/mame/capcom/sonson.cpp",
+        "src/mame/dataeast/btime.cpp",
+        "src/mame/dataeast/kingofb.cpp",
+        "src/mame/dataeast/rohga.cpp",
+        "src/mame/dataeast/tumbleb.cpp",
+        "src/mame/igs/goldstar.cpp",
+        "src/mame/irem/m62.cpp",
+        "src/mame/irem/vigilant.cpp",
+        "src/mame/jaleco/psychic5.cpp",
+        "src/mame/kaneko/airbustr.cpp",
+        "src/mame/konami/aliens.cpp",
+        "src/mame/konami/asterix.cpp",
+        "src/mame/konami/circusc.cpp",
+        "src/mame/konami/gyruss.cpp",
+        "src/mame/konami/hyperspt.cpp",
+        "src/mame/konami/jackal.cpp",
+        "src/mame/konami/mikie.cpp",
+        "src/mame/konami/timeplt.cpp",
+        "src/mame/konami/tmnt2.cpp",
+        "src/mame/konami/yiear.cpp",
+        "src/mame/metro/hyprduel.cpp",
+        "src/mame/misc/vamphalf.cpp",
+        "src/mame/namco/galaga.cpp",
+        "src/mame/nmk/nmk16.cpp",
+        "src/mame/sega/segas16a.cpp",
+        "src/mame/sega/segas16b.cpp",
+        "src/mame/sega/segas18.cpp",
+        "src/mame/sega/system1.cpp",
+        "src/mame/seibu/cabal.cpp",
+        "src/mame/seibu/dcon.cpp",
+        "src/mame/snk/snk.cpp",
+        "src/mame/taito/bublbobl.cpp",
+        "src/mame/technos/chinagat.cpp",
+        "src/mame/technos/ddragon3.cpp",
+        "src/mame/technos/dogfgt.cpp",
+        "src/mame/technos/matmania.cpp",
+        "src/mame/tecmo/bombjack.cpp",
+        "src/mame/toaplan/twincobr.cpp",
+        "src/mame/upl/ninjakd2.cpp",
+        "src/mame/vsystem/aerofgt.cpp",
+        "src/mame/williams/williams.cpp"
+      ],
+      "games": [
+        "1942",
+        "1942b",
+        "1943",
+        "1943ua",
+        "aerofgt",
+        "airattck",
+        "airbustrb",
+        "alienar",
+        "aliens",
+        "aliensyn",
+        "aoh",
+        "arcadian",
+        "asterix",
+        "astorm",
+        "blktiger",
+        "blswhstl",
+        "bombjack",
+        "btimem",
+        "bublboblr1",
+        "cabalus2",
+        "cb3",
+        "champbas",
+        "chinagat",
+        "chrygld",
+        "circuscc",
+        "dogfgt",
+        "fantzone",
+        "forgottn",
+        "ghoulsu",
+        "goldnaxe",
+        "gyruss",
+        "hpolym84",
+        "hyperspt",
+        "hyprduel2",
+        "ikari",
+        "jackal",
+        "kidniki",
+        "kikcubicb",
+        "magicbal",
+        "matmania",
+        "mikie",
+        "msword",
+        "mtwins",
+        "ninjakd2",
+        "psychic5",
+        "ringkingw",
+        "sdgndmps",
+        "shinobi",
+        "sidearms",
+        "sonson",
+        "thndrx2",
+        "timeplt",
+        "twincobr",
+        "wb31",
+        "wbmlbg",
+        "wbmlbge",
+        "wboy",
+        "wizdfire",
+        "wwfwfest",
+        "xevious",
+        "yiear"
+      ]
     }
   }
 }
